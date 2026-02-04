@@ -1,0 +1,227 @@
+// Enterprise Grade Schema (PostgreSQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// --------------------------------------------------------
+// ENUMS & TYPES
+// --------------------------------------------------------
+
+enum UserRole {
+  SUPER_ADMIN       // Platform Owner
+  BRAND_ADMIN       // Tenant Owner
+  WAREHOUSE_MANAGER // Operations
+  FINANCE_MANAGER   // Accounts
+  SALES_PERSON      // Field Agent
+}
+
+enum BrandStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING
+  CONFIRMED
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+// --------------------------------------------------------
+// CORE IDENTITY (Tenancy)
+// --------------------------------------------------------
+
+model Brand {
+  id          String      @id @default(uuid())
+  name        String
+  slug        String      @unique 
+  logoUrl     String?
+  taxId       String?     // GST/VAT Number
+  status      BrandStatus @default(ACTIVE)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  users       User[]
+  products    Product[]
+  warehouses  Warehouse[]
+  customers   Customer[]
+  orders      Order[]
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  fullName      String
+  role          UserRole
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  
+  brandId       String?   
+  brand         Brand?    @relation(fields: [brandId], references: [id])
+
+  assignedWarehouseId String?
+  assignedWarehouse   Warehouse? @relation(fields: [assignedWarehouseId], references: [id])
+
+  auditLogs     AuditLog[]
+  salesOrders   Order[]   @relation("SalesPerson")
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([email])
+  @@index([brandId])
+}
+
+// --------------------------------------------------------
+// INVENTORY & PRODUCT MANAGEMENT
+// --------------------------------------------------------
+
+model Product {
+  id          String   @id @default(uuid())
+  sku         String   
+  name        String
+  description String?
+  categoryId  String?
+  brandId     String
+  brand       Brand    @relation(fields: [brandId], references: [id])
+  
+  // Pricing (Decimal for Financial Accuracy)
+  basePrice   Decimal  @db.Decimal(10, 2)
+  costPrice   Decimal? @db.Decimal(10, 2)
+  taxRate     Decimal  @default(0) 
+  
+  imageUrl    String?
+
+  unit        String   @default("pcs") 
+  barcode     String?
+
+  minStockLevel Int    @default(10)
+  stocks        Stock[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([brandId, sku]) 
+  @@index([brandId])
+}
+
+model Warehouse {
+  id          String   @id @default(uuid())
+  name        String
+  location    String?
+  brandId     String
+  brand       Brand    @relation(fields: [brandId], references: [id])
+  
+  managers    User[]
+  stocks      Stock[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Stock {
+  id          String   @id @default(uuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+  
+  quantity    Int      @default(0)
+  
+  batchNumber String?
+  expiryDate  DateTime?
+
+  updatedAt   DateTime @updatedAt
+
+  @@unique([productId, warehouseId, batchNumber]) 
+}
+
+// --------------------------------------------------------
+// SALES & TRANSACTIONS
+// --------------------------------------------------------
+
+model Customer {
+  id          String   @id @default(uuid())
+  fullName    String
+  phoneNumber String?
+  email       String?
+  address     String?
+  
+  brandId     String
+  brand       Brand    @relation(fields: [brandId], references: [id])
+
+  orders      Order[]
+
+  createdAt   DateTime @default(now())
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      
+  
+  brandId         String
+  brand           Brand       @relation(fields: [brandId], references: [id])
+
+  customerId      String
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  
+  salesPersonId   String
+  salesPerson     User        @relation("SalesPerson", fields: [salesPersonId], references: [id])
+
+  status          OrderStatus @default(PENDING)
+  totalAmount     Decimal     @db.Decimal(10, 2)
+  taxAmount       Decimal     @db.Decimal(10, 2)
+  discountAmount  Decimal     @db.Decimal(10, 2)
+
+  items           OrderItem[]
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id])
+  
+  productId   String
+  productName String   
+  sku         String   
+  
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  totalPrice  Decimal  @db.Decimal(10, 2)
+}
+
+// --------------------------------------------------------
+// SECURITY & AUDIT
+// --------------------------------------------------------
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  action      String   
+  entity      String   
+  entityId    String   
+  details     Json?    
+  
+  ipAddress   String?
+  userAgent   String?
+  
+  createdAt   DateTime @default(now())
+}
