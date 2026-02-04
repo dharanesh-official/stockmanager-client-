@@ -93,14 +93,14 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                     </Link>
                 )}
 
-                {hasAccess(['SUPER_ADMIN', 'BRAND_ADMIN', 'WAREHOUSE_MANAGER']) && (
+                {hasAccess(['SUPER_ADMIN', 'BRAND_ADMIN', 'WAREHOUSE_MANAGER', 'SALES_PERSON']) && (
                     <Link href="/dashboard/inventory" onClick={onClose} className={`nav-item ${isActive('/dashboard/inventory') ? 'active' : ''}`}>
                         <Package className="nav-icon" />
                         <span>Inventory</span>
                     </Link>
                 )}
 
-                {hasAccess(['SUPER_ADMIN', 'BRAND_ADMIN']) && (
+                {hasAccess(['SUPER_ADMIN', 'BRAND_ADMIN', 'SALES_PERSON']) && (
                     <Link href="/dashboard/orders" onClick={onClose} className={`nav-item ${isActive('/dashboard/orders') ? 'active' : ''}`}>
                         <ShoppingCart className="nav-icon" />
                         <span>Orders</span>
