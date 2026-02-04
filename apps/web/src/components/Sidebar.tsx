@@ -42,7 +42,7 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
                     // Fallback visual names based on role
                     if (payload.role === 'SUPER_ADMIN') setUserName('Vikram Malhotra');
                     if (payload.role === 'BRAND_ADMIN') setUserName('Rahul Verma');
-                    if (payload.role === 'WAREHOUSE_MANAGER') setUserName('Suresh Kumar');
+                    if (payload.role === 'WAREHOUSE_MANAGER' || payload.role === 'WAREHOUSE') setUserName('Suresh Kumar');
                     if (payload.role === 'FINANCE_MANAGER') setUserName('Priya Das');
                 }
             } catch (e) {
@@ -66,8 +66,12 @@ export default function Sidebar({ mobileOpen, onClose }: SidebarProps) {
     // RBAC Configuration
     const hasAccess = (itemRole: string[]) => {
         if (!userRole) return false; // meaningful default
-        if (userRole === 'SUPER_ADMIN') return true; // Super admin sees all
-        return itemRole.includes(userRole);
+
+        let normalizedRole = userRole;
+        if (userRole === 'WAREHOUSE') normalizedRole = 'WAREHOUSE_MANAGER';
+
+        if (normalizedRole === 'SUPER_ADMIN') return true; // Super admin sees all
+        return itemRole.includes(normalizedRole);
     };
 
     return (
